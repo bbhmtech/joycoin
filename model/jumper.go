@@ -3,15 +3,16 @@ package model
 import (
 	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
+	"gorm.io/gorm"
 )
 
-type JumperMap struct {
-	ID        string
-	Hint      string
-	TargetURL string
+type Jumper struct {
+	ID       string
+	Hint     string
+	TargetID uint
 }
 
-func JumperMapFromEncodedID(key string) (*JumperMap, error) {
+func JumperFromEncodedID(db *gorm.DB, key string) (*Jumper, error) {
 	b, err := base58.Decode(key)
 	if err != nil {
 		return nil, err
@@ -22,13 +23,12 @@ func JumperMapFromEncodedID(key string) (*JumperMap, error) {
 		return nil, err
 	}
 
-	return &JumperMap{
-		ID:        id.String(),
-		TargetURL: "demo",
-	}, nil
+	j := Jumper{ID: id.String()}
+	err = db.Take(&j).Error
+	return &j, err
 }
 
-func (j *JumperMap) EncodeID() (string, error) {
+func (j *Jumper) EncodeID() (string, error) {
 	u, err := uuid.Parse(j.ID)
 	if err != nil {
 		return "", err
