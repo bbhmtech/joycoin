@@ -17,10 +17,8 @@ type JumperServer struct {
 func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *model.Jumper) {
 	sccv := decodeSecureCookie(w, r, s.scc)
 	sessionAcc, err := sccv.GetAccount(s.db)
-	loggedIn := true
-	if err == gorm.ErrRecordNotFound {
-		loggedIn = false
-	} else if err != nil {
+	loggedIn := sessionAcc != nil
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -29,6 +27,7 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 	err = s.db.Take(&tagAcc).Error
 	if err == gorm.ErrRecordNotFound {
 		// bad tag
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

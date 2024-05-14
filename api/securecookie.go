@@ -58,9 +58,11 @@ func (v *mySecureCookieValue) GetAccount(db *gorm.DB) (*model.Account, error) {
 		if err == nil {
 			return &acc, nil
 		} else if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		} else {
 			return nil, err
 		}
 
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, nil
 }
