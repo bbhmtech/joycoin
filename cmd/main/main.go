@@ -15,6 +15,7 @@ func main() {
 	model.AutoMigration(db)
 
 	http.Handle("/j/", api.CreateJumperServer(db, secc))
+	http.Handle("/_/v1/", api.CreateAPIServerV1(db, secc))
 	http.ListenAndServe(":8080", nil)
 	// fmt.Println(model.JumperMapFromKey("S26awVL98GSvZp15wsJQ9Q"))
 }
