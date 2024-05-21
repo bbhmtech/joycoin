@@ -15,6 +15,7 @@ type Config struct {
 	DatabseConnectionString string
 	SecureCookieHashKey     string
 	SecureCookieBlockKey    string
+	ListenAddr              string
 }
 
 func LoadConfig(filename string) *Config {
