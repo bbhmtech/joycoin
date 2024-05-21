@@ -18,7 +18,7 @@ type Account struct {
 	Activated         bool
 	CachedCentBalance int64
 	PasscodeHash      []byte `json:"-"`
-	DeviceBindingKey  string `json:"-" gorm:"index"`
+	DeviceBindingKey  string `json:"-"  gorm:"uniqueIndex"`
 }
 
 func (a *Account) ChangePasscode(new string) {
