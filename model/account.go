@@ -17,8 +17,8 @@ type Account struct {
 	Role              string
 	Activated         bool
 	CachedCentBalance int64
-	PasscodeHash      []byte
-	DeviceBindingKey  string `gorm:"index"`
+	PasscodeHash      []byte `json:"-"`
+	DeviceBindingKey  string `json:"-" gorm:"index"`
 }
 
 func (a *Account) ChangePasscode(new string) {
@@ -37,4 +37,16 @@ func (a *Account) VerifyPasscode(code string) bool {
 
 func (a *Account) NewDeviceBindingKey() {
 	a.DeviceBindingKey = uuid.NewString()
+}
+
+func (a *Account) IsMerchant() bool {
+	return a.Role == "merchant"
+}
+
+func (a *Account) IsNormal() bool {
+	return a.Role == "normal"
+}
+
+func (a *Account) IsOperator() bool {
+	return a.Role == "operator"
 }

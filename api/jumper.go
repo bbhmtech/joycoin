@@ -41,13 +41,13 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 	}
 
 	if loggedIn {
-		if sessionAcc.Role == "merchant" {
-			if tagAcc.Role == "normal" {
+		if sessionAcc.IsMerchant() {
+			if tagAcc.IsNormal() {
 				// do quickAction
 			} else if tagAcc.ID == sessionAcc.ID {
 				// merchant dashboard
 			}
-		} else if sessionAcc.Role == "normal" && tagAcc.Role == "normal" {
+		} else if sessionAcc.IsNormal() && tagAcc.IsNormal() {
 			if sessionAcc.ID == tagAcc.ID {
 				// normal dashboard
 			} else {
