@@ -9,9 +9,19 @@ import (
 )
 
 const _secureCookieName = "secure-joycoin-v1"
+const _sccDeviceBindingKey = "dbk"
 
 type mySecureCookieValue struct {
 	rawValue map[string]string
+}
+
+func createSecureCookieValue(deviceBindingKey string) *mySecureCookieValue {
+	v := map[string]string{
+		_sccDeviceBindingKey: deviceBindingKey,
+	}
+	return &mySecureCookieValue{
+		rawValue: v,
+	}
 }
 
 func decodeSecureCookie(w http.ResponseWriter, r *http.Request, scc *securecookie.SecureCookie) *mySecureCookieValue {
@@ -33,7 +43,8 @@ func decodeSecureCookie(w http.ResponseWriter, r *http.Request, scc *securecooki
 }
 
 func (v *mySecureCookieValue) SetCookie(w http.ResponseWriter, scc *securecookie.SecureCookie) {
-	if encoded, err := scc.Encode(_secureCookieName, v.rawValue); err == nil {
+	encoded, err := scc.Encode(_secureCookieName, v.rawValue)
+	if err == nil {
 		cookie := &http.Cookie{
 			Name:     _secureCookieName,
 			Value:    encoded,
@@ -46,15 +57,15 @@ func (v *mySecureCookieValue) SetCookie(w http.ResponseWriter, scc *securecookie
 	}
 }
 
-func (v *mySecureCookieValue) DeviceBindingKey() string {
-	return v.rawValue["dbk"]
-}
-
 func (v *mySecureCookieValue) GetAccount(db *gorm.DB) (*model.Account, error) {
-	clientKey := v.DeviceBindingKey()
+	if v == nil {
+		return nil, nil
+	}
+
+	clientKey := v.rawValue[_sccDeviceBindingKey]
 	if len(clientKey) > 0 {
 		acc := model.Account{DeviceBindingKey: clientKey}
-		err := db.Take(&acc).Error
+		err := db.Where(&acc).First(&acc).Error
 		if err == nil {
 			return &acc, nil
 		} else if err == gorm.ErrRecordNotFound {
