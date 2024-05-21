@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	_fromFileName           string
+	_fromFileName           string `json:"-"`
 	DatabseConnectionString string
 	SecureCookieHashKey     string
 	SecureCookieBlockKey    string
@@ -59,7 +59,16 @@ func (c *Config) InitializeSecureCookie() *securecookie.SecureCookie {
 		c.SecureCookieBlockKey = base64.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32))
 		c.SaveConfig()
 	}
-	s := securecookie.New([]byte(c.SecureCookieHashKey), []byte(c.SecureCookieBlockKey))
+	hKey, err := base64.StdEncoding.DecodeString(c.SecureCookieHashKey)
+	if err != nil {
+		panic(err)
+	}
+	bKey, err := base64.StdEncoding.DecodeString(c.SecureCookieBlockKey)
+	if err != nil {
+		panic(err)
+	}
+
+	s := securecookie.New(hKey, bKey)
 
 	return s
 }
