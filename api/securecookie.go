@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const _secureCookieName = "secure-joycoin"
+const _secureCookieName = "secure-joycoin-v1"
 
 type mySecureCookieValue struct {
 	rawValue map[string]string
