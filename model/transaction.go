@@ -26,12 +26,16 @@ type Transaction struct {
 }
 
 func (t *Transaction) PreFlightCheck(db *gorm.DB) error {
+	if t.FromAccountID == t.ToAccountID {
+		return errors.New("无法进行同账户交易")
+	}
+
 	err := db.Take(&t.InitiatorAccount, t.InitiatorAccountID).Error
 	if err != nil {
 		return fmt.Errorf("无法找到 Initiator: %w", err)
 	}
 
-	if !t.InitiatorAccount.IsOperator() && t.InitiatorAccount.ID != t.FromAccount.ID {
+	if !t.InitiatorAccount.IsOperator() && t.InitiatorAccountID != t.FromAccountID {
 		return errors.New("未授权的访问")
 	}
 
@@ -53,9 +57,33 @@ func (t *Transaction) PreFlightCheck(db *gorm.DB) error {
 		return errors.New("接收方账户未激活")
 	}
 
+	// I know here racing condition exists, but I wanna to prioritize success in transactions first.
+	// If negative balance occurs, subsequent transaction will fail.
 	if t.FromAccount.IsNormal() && t.CentAmount > 0 && t.FromAccount.CachedCentBalance >= t.CentAmount {
 		return errors.New("支出方账户余额不足")
 	}
 
 	return nil
+}
+
+func (t *Transaction) Insert(db *gorm.DB) error {
+	if t.ID != 0 {
+		return errors.New("already inserted")
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&t).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&t.FromAccount).Update("cached_cent_balance", gorm.Expr("cached_cent_balance - ?", t.CentAmount)).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&t.ToAccount).Update("cached_cent_balance", gorm.Expr("cached_cent_balance + ?", t.CentAmount)).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
