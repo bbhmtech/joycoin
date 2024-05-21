@@ -54,6 +54,63 @@ func (s *APIServerV1) readJSON(r *http.Request) (map[string]interface{}, error) 
 
 func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	accID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	sessAcc := s.SessionAccount(r)
+	//
+	switch r.Method {
+	case http.MethodGet:
+		if !sessAcc.IsOperator() && sessAcc.ID != uint(accID) {
+			http.Error(w, "未授权", http.StatusForbidden)
+			return
+		}
+		acc := model.Account{ID: uint(accID)}
+		err = s.db.Take(&acc).Error
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		s.writeJSON(w, acc)
+	case http.MethodPost:
+		if !sessAcc.IsOperator() {
+			http.Error(w, `"现在还用不了！"`, http.StatusForbidden)
+			return
+		}
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		acc := model.Account{}
+		err = json.Unmarshal(b, &acc)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = s.db.Save(&acc).Error
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (s *APIServerV1) AccountActivateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
 	accId, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -67,9 +124,39 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSON(w, acc)
+	data, err := s.readJSON(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if acc.Activated {
+		// already activated, match passcode
+		if !acc.VerifyPasscode(data["passcode"].(string)) {
+			http.Error(w, "wrong password", http.StatusForbidden)
+			return
+		}
+	} else {
+		// not activated, set passcode
+		acc.ChangePasscode(data["passcode"].(string))
+		acc.Activated = true
+		if err := s.db.Model(&acc).Where("activated = ?", false).Select("PasscodeHash", "Activated").Updates(&acc).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// login if no problem
+	acc.NewDeviceBindingKey()
+	if err := s.db.Model(&acc).Where("activated = ?", true).Select("DeviceBindingKey").Updates(&acc).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	createSecureCookieValue(acc.DeviceBindingKey).SetCookie(w, s.scc)
+	w.WriteHeader(http.StatusOK)
 }
 
+// princple here: 请求必须等幂
 func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sessAcc := s.SessionAccount(r)
@@ -102,7 +189,9 @@ func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Re
 			ReferenceTag:       data["reference_tag"].(string),
 			InitiatorAccountID: sessAcc.ID,
 			FromAccountID:      uint(data["from"].(float64)),
-			ToAccountID:        uint(data["from"].(float64)),
+			ToAccountID:        uint(data["to"].(float64)),
+			CentAmount:         int64(data["cent_amount"].(float64)),
+			Message:            data["message"].(string),
 		}
 
 		if err = t.PreFlightCheck(s.db); err != nil {
@@ -110,7 +199,7 @@ func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		if err = s.db.Create(&t).Error; err != nil {
+		if err = t.Insert(s.db); err != nil {
 			http.Error(w, "交易被数据库拒绝: "+err.Error(), http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusCreated)
@@ -146,11 +235,13 @@ func (s *APIServerV1) authRequired(handler func(http.ResponseWriter, *http.Reque
 		handler(w, r.WithContext(ctx))
 	})
 }
-func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie) {
+func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie) http.Handler {
 	s := APIServerV1{db, scc}
-	r := http.ServeMux{}
+	r := mux.NewRouter()
+	r.HandleFunc("/_/v1/account/{id}/activate", s.AccountActivateHandler)
 	r.Handle("/_/v1/account/{id}", s.authRequired(s.AccountHandler))
 
 	r.Handle("/_/v1/transaction/{id}", s.authRequired(s.TransactionActionHandler))
 	r.Handle("/_/v1/transaction", s.authRequired(s.ListTransactionHandler))
+	return r
 }
