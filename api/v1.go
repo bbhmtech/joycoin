@@ -1,11 +1,11 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/bbhmtech/joycoin/model"
 	"github.com/google/uuid"
@@ -14,17 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type ctxKey int
-
-const _ctxSessionAccount ctxKey = 0
-
 type APIServerV1 struct {
 	db  *gorm.DB
 	scc *securecookie.SecureCookie
-}
-
-func (s *APIServerV1) SessionAccount(r *http.Request) *model.Account {
-	return r.Context().Value(_ctxSessionAccount).(*model.Account)
 }
 
 func (s *APIServerV1) writeJSON(w http.ResponseWriter, data any) {
@@ -61,7 +53,7 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessAcc := s.SessionAccount(r)
+	sessAcc := sessionAccount(r)
 	//
 	switch r.Method {
 	case http.MethodGet:
@@ -161,7 +153,7 @@ func (s *APIServerV1) AccountActivateHandler(w http.ResponseWriter, r *http.Requ
 // princple here: 请求必须等幂
 func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	sessAcc := s.SessionAccount(r)
+	sessAcc := sessionAccount(r)
 	switch r.Method {
 	case http.MethodGet:
 		tID, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -217,33 +209,66 @@ func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Re
 func (s *APIServerV1) ListTransactionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
-func (s *APIServerV1) authRequired(handler func(http.ResponseWriter, *http.Request)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sccv := decodeSecureCookie(w, r, s.scc)
-		sessionAcc, err := sccv.GetAccount(s.db)
-		loggedIn := sessionAcc != nil
+func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request) {
+	sessAcc := sessionAccount(r)
+	if r.Method == http.MethodPost {
+		data, err := s.readJSON(r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if !loggedIn {
-			http.Error(w, "authentication required", http.StatusUnauthorized)
-			return
+		switch data["action"].(string) {
+		case "quickPay":
+			amount := int64(data["cent_amount"].(float64))
+			// amount > 0: pay from sessAcc to ...
+			// amount < 0: collect money from ... to sessAcc
+			if amount < 0 && sessAcc.IsNormal() {
+				http.Error(w, "普通账户不支持快速收款", http.StatusForbidden)
+				return
+			}
+
+			if data["temporary"].(bool) {
+				qa := model.QuickAction{
+					DeviceBindingKey: sessAcc.DeviceBindingKey,
+					ValidBefore:      time.Now().Add(time.Minute),
+					Temporary:        true,
+					CachedAccountID:  sessAcc.ID,
+					Action:           "quickPay",
+					Int64Value1:      amount,
+					StringValue1:     data["message"].(string),
+				}
+				s.db.Save(&qa)
+			} else {
+				qa := model.QuickAction{
+					DeviceBindingKey: sessAcc.DeviceBindingKey,
+					ValidBefore:      time.Now().Add(24 * time.Hour),
+					Temporary:        false,
+					CachedAccountID:  sessAcc.ID,
+					Action:           "quickPay",
+					Int64Value1:      amount,
+					StringValue1:     data["message"].(string),
+				}
+				s.db.Save(&qa)
+			}
 		}
 
-		ctx := context.WithValue(r.Context(), _ctxSessionAccount, sessionAcc)
-
-		handler(w, r.WithContext(ctx))
-	})
+		w.WriteHeader(http.StatusOK)
+		return
+	} else {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 }
+
 func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie) http.Handler {
 	s := APIServerV1{db, scc}
 	r := mux.NewRouter()
 	r.HandleFunc("/_/v1/account/{id}/activate", s.AccountActivateHandler)
-	r.Handle("/_/v1/account/{id}", s.authRequired(s.AccountHandler))
+	r.Handle("/_/v1/account/{id}", authRequired(s.scc, s.db, s.AccountHandler))
+	r.Handle("/_/v1/quickaction", authRequired(s.scc, s.db, s.QuickActionHandler))
 
-	r.Handle("/_/v1/transaction/{id}", s.authRequired(s.TransactionActionHandler))
-	r.Handle("/_/v1/transaction", s.authRequired(s.ListTransactionHandler))
+	r.Handle("/_/v1/transaction/{id}", authRequired(s.scc, s.db, s.TransactionActionHandler))
+	r.Handle("/_/v1/transaction", authRequired(s.scc, s.db, s.ListTransactionHandler))
 	return r
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/bbhmtech/joycoin/model"
@@ -10,6 +11,10 @@ import (
 )
 
 const _secureCookieName = "secure-joycoin-v1"
+
+type ctxKey int
+
+const _ctxSessionAccount ctxKey = 0
 
 type mySecureCookieValue struct {
 	DeviceBindingKey [16]byte
@@ -37,6 +42,31 @@ func decodeSecureCookie(w http.ResponseWriter, r *http.Request, scc *securecooki
 		}
 	}
 	return nil
+}
+
+func authRequired(scc *securecookie.SecureCookie, db *gorm.DB, handler func(http.ResponseWriter, *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sccv := decodeSecureCookie(w, r, scc)
+		sessionAcc, err := sccv.GetAccount(db)
+		loggedIn := sessionAcc != nil
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if !loggedIn {
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), _ctxSessionAccount, sessionAcc)
+
+		handler(w, r.WithContext(ctx))
+	})
+}
+
+func sessionAccount(r *http.Request) *model.Account {
+	return r.Context().Value(_ctxSessionAccount).(*model.Account)
 }
 
 func (v *mySecureCookieValue) SetCookie(w http.ResponseWriter, scc *securecookie.SecureCookie) {
@@ -72,6 +102,27 @@ func (v *mySecureCookieValue) GetAccount(db *gorm.DB) (*model.Account, error) {
 			return nil, err
 		}
 
+	}
+	return nil, nil
+}
+
+func (v *mySecureCookieValue) GetQuickAction(db *gorm.DB) (*model.QuickAction, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	u, err := uuid.FromBytes(v.DeviceBindingKey[:])
+	clientKey := u.String()
+	if err == nil && len(clientKey) > 0 {
+		qa := model.QuickAction{DeviceBindingKey: clientKey}
+		err := db.Joins("CachedAccount").First(&qa).Error
+		if err == gorm.ErrRecordNotFound || qa.CachedAccount.DeviceBindingKey != qa.DeviceBindingKey || !qa.IsValid() {
+			return nil, nil
+		} else if err == nil {
+			return &qa, nil
+		} else {
+			return nil, err
+		}
 	}
 	return nil, nil
 }

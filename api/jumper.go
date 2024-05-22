@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/bbhmtech/joycoin/model"
 	"github.com/gorilla/mux"
@@ -16,8 +17,7 @@ type JumperServer struct {
 
 func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *model.Jumper) {
 	sccv := decodeSecureCookie(w, r, s.scc)
-	sessionAcc, err := sccv.GetAccount(s.db)
-	loggedIn := sessionAcc != nil
+	qa, err := sccv.GetQuickAction(s.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -40,20 +40,70 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 		return
 	}
 
-	if loggedIn {
-		if sessionAcc.IsMerchant() {
-			if tagAcc.IsNormal() {
-				// do quickAction
-			} else if tagAcc.ID == sessionAcc.ID {
-				// merchant dashboard
+	if qa != nil {
+		switch qa.Action {
+		case "quickPay":
+			err = s.db.Transaction(func(tx *gorm.DB) error {
+				var err error
+				var t model.Transaction
+				if qa.Int64Value1 > 0 {
+					t = model.Transaction{
+						ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
+						InitiatorAccountID: qa.CachedAccountID,
+						FromAccountID:      qa.CachedAccountID,
+						ToAccountID:        tagAcc.ID,
+						CentAmount:         qa.Int64Value1,
+						Message:            qa.StringValue1,
+					}
+				} else {
+					t = model.Transaction{
+						ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
+						InitiatorAccountID: qa.CachedAccountID,
+						FromAccountID:      tagAcc.ID,
+						ToAccountID:        qa.CachedAccountID,
+						CentAmount:         qa.Int64Value1,
+						Message:            qa.StringValue1,
+					}
+				}
+
+				if err = t.PreFlightCheck(tx); err != nil {
+					return err
+				}
+
+				if err = t.Insert(tx); err != nil {
+					return err
+				}
+
+				if qa.Temporary {
+					qa.ValidBefore = time.Now()
+					err = tx.Save(&qa).Error
+				}
+				return err
+			})
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-		} else if sessionAcc.IsNormal() && tagAcc.IsNormal() {
-			if sessionAcc.ID == tagAcc.ID {
-				// normal dashboard
-			} else {
-				// check oneshot pay
-			}
+
+			w.WriteHeader(http.StatusOK)
+			// TODO: redirect to success page
+			return
+		default:
+			http.Error(w, "unsupported action", http.StatusInternalServerError)
+			return
 		}
+	}
+
+	sessAcc, err := sccv.GetAccount(s.db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if sessAcc != nil {
+		// http.Redirect() to account page
+		return
 	}
 
 	// redirect to login page
