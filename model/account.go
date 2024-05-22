@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const myPhrase = `So big smiles, we're gonna get in front of this`
@@ -33,10 +31,6 @@ func (a *Account) VerifyPasscode(code string) bool {
 	h.Write([]byte(code))
 	h.Write([]byte(myPhrase))
 	return bytes.Equal(a.PasscodeHash, h.Sum(nil))
-}
-
-func (a *Account) NewDeviceBindingKey() {
-	a.DeviceBindingKey = uuid.NewString()
 }
 
 func (a *Account) IsMerchant() bool {

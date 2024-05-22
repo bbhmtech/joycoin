@@ -4,31 +4,28 @@ import (
 	"net/http"
 
 	"github.com/bbhmtech/joycoin/model"
+	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"gorm.io/gorm"
 )
 
 const _secureCookieName = "secure-joycoin-v1"
-const _sccDeviceBindingKey = "dbk"
 
 type mySecureCookieValue struct {
-	rawValue map[string]string
+	DeviceBindingKey [16]byte
 }
 
-func createSecureCookieValue(deviceBindingKey string) *mySecureCookieValue {
-	v := map[string]string{
-		_sccDeviceBindingKey: deviceBindingKey,
-	}
+func createSecureCookieValue(deviceBindingKey uuid.UUID) *mySecureCookieValue {
 	return &mySecureCookieValue{
-		rawValue: v,
+		DeviceBindingKey: deviceBindingKey,
 	}
 }
 
 func decodeSecureCookie(w http.ResponseWriter, r *http.Request, scc *securecookie.SecureCookie) *mySecureCookieValue {
 	if cookie, err := r.Cookie(_secureCookieName); err == nil {
-		rawValue := make(map[string]string)
-		if err = scc.Decode(_secureCookieName, cookie.Value, &rawValue); err == nil {
-			return &mySecureCookieValue{rawValue}
+		v := mySecureCookieValue{}
+		if err = scc.Decode(_secureCookieName, cookie.Value, &v); err == nil {
+			return &v
 		} else {
 			cookie := &http.Cookie{
 				Name:   _secureCookieName,
@@ -43,7 +40,7 @@ func decodeSecureCookie(w http.ResponseWriter, r *http.Request, scc *securecooki
 }
 
 func (v *mySecureCookieValue) SetCookie(w http.ResponseWriter, scc *securecookie.SecureCookie) {
-	encoded, err := scc.Encode(_secureCookieName, v.rawValue)
+	encoded, err := scc.Encode(_secureCookieName, v)
 	if err == nil {
 		cookie := &http.Cookie{
 			Name:     _secureCookieName,
@@ -62,8 +59,9 @@ func (v *mySecureCookieValue) GetAccount(db *gorm.DB) (*model.Account, error) {
 		return nil, nil
 	}
 
-	clientKey := v.rawValue[_sccDeviceBindingKey]
-	if len(clientKey) > 0 {
+	u, err := uuid.FromBytes(v.DeviceBindingKey[:])
+	clientKey := u.String()
+	if err == nil && len(clientKey) > 0 {
 		acc := model.Account{DeviceBindingKey: clientKey}
 		err := db.Where(&acc).First(&acc).Error
 		if err == nil {

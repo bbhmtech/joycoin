@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/bbhmtech/joycoin/model"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"gorm.io/gorm"
@@ -147,12 +148,13 @@ func (s *APIServerV1) AccountActivateHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// login if no problem
-	acc.NewDeviceBindingKey()
+	u := uuid.New()
+	acc.DeviceBindingKey = u.String()
 	if err := s.db.Model(&acc).Where("activated = ?", true).Select("DeviceBindingKey").Updates(&acc).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	createSecureCookieValue(acc.DeviceBindingKey).SetCookie(w, s.scc)
+	createSecureCookieValue(u).SetCookie(w, s.scc)
 	w.WriteHeader(http.StatusOK)
 }
 
