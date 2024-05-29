@@ -17,6 +17,7 @@ type Config struct {
 	SecureCookieBlockKey    string
 	ListenAddr              string
 	AllowedCORSOrigin       string
+	QuickPayResultURL       string
 }
 
 func LoadConfig(filename string) *Config {

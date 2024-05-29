@@ -14,8 +14,8 @@ func main() {
 	secc := cfg.InitializeSecureCookie()
 	model.AutoMigration(db)
 
-	http.Handle("/j/", api.CreateJumperServer(db, secc))
-	http.Handle("/_/v1/", api.CreateAPIServerV1(db, secc, cfg.AllowedCORSOrigin))
+	http.Handle("/j/", api.CreateJumperServer(db, secc, cfg))
+	http.Handle("/_/v1/", api.CreateAPIServerV1(db, secc, cfg))
 	http.ListenAndServe(cfg.ListenAddr, nil)
 	// fmt.Println(model.JumperMapFromKey("S26awVL98GSvZp15wsJQ9Q"))
 }

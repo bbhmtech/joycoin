@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bbhmtech/joycoin"
 	"github.com/bbhmtech/joycoin/model"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -294,8 +295,12 @@ func (s *APIServerV1) ListJumpers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie, corsOrigin string) http.Handler {
-	s := APIServerV1{db, scc, corsOrigin}
+func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie, cfg *joycoin.Config) http.Handler {
+	s := APIServerV1{
+		db:         db,
+		scc:        scc,
+		corsOrigin: cfg.AllowedCORSOrigin,
+	}
 	r := mux.NewRouter()
 	r.HandleFunc("/_/v1/account/{id}/activate", s.AccountActivateHandler)
 	r.Handle("/_/v1/account/{id}", authRequired(s.scc, s.db, s.AccountHandler))

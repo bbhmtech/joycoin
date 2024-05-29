@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bbhmtech/joycoin"
 	"github.com/bbhmtech/joycoin/model"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
@@ -11,8 +12,9 @@ import (
 )
 
 type JumperServer struct {
-	db  *gorm.DB
-	scc *securecookie.SecureCookie
+	db         *gorm.DB
+	scc        *securecookie.SecureCookie
+	qpRedirect string
 }
 
 func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *model.Jumper) {
@@ -86,8 +88,8 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
-			// TODO: redirect to success page
+			// TODO: pass transaction details
+			http.Redirect(w, r, s.qpRedirect, http.StatusTemporaryRedirect)
 			return
 		default:
 			http.Error(w, "unsupported action", http.StatusInternalServerError)
@@ -135,8 +137,12 @@ func (s *JumperServer) HandleJ(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreateJumperServer(db *gorm.DB, secc *securecookie.SecureCookie) http.Handler {
-	j := JumperServer{db, secc}
+func CreateJumperServer(db *gorm.DB, secc *securecookie.SecureCookie, cfg *joycoin.Config) http.Handler {
+	j := JumperServer{
+		db:         db,
+		scc:        secc,
+		qpRedirect: cfg.QuickPayResultURL,
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/j/{key}", j.HandleJ)
