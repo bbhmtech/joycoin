@@ -15,8 +15,9 @@ import (
 )
 
 type APIServerV1 struct {
-	db  *gorm.DB
-	scc *securecookie.SecureCookie
+	db         *gorm.DB
+	scc        *securecookie.SecureCookie
+	corsOrigin string
 }
 
 func (s *APIServerV1) writeJSON(w http.ResponseWriter, data any) {
@@ -132,8 +133,10 @@ func (s *APIServerV1) AccountActivateHandler(w http.ResponseWriter, r *http.Requ
 	} else {
 		// not activated, set passcode
 		acc.ChangePasscode(data["passcode"].(string))
+
+		acc.Nickname = data["nickname"].(string)
 		acc.Activated = true
-		if err := s.db.Model(&acc).Where("activated = ?", false).Select("PasscodeHash", "Activated").Updates(&acc).Error; err != nil {
+		if err := s.db.Model(&acc).Where("activated = ?", false).Select("PasscodeHash", "Nickname", "Activated").Updates(&acc).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -261,8 +264,38 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie) http.Handler {
-	s := APIServerV1{db, scc}
+func (s *APIServerV1) CORSHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", s.corsOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		if r.Method == http.MethodOptions {
+			return
+		} else {
+			next.ServeHTTP(w, r)
+		}
+	})
+}
+
+func (s *APIServerV1) ListJumpers(w http.ResponseWriter, r *http.Request) {
+	sessAcc := sessionAccount(r)
+	if sessAcc.IsOperator() {
+		var data []model.Jumper
+		err := s.db.Find(&data).Error
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.writeJSON(w, data)
+	} else {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	}
+}
+
+func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie, corsOrigin string) http.Handler {
+	s := APIServerV1{db, scc, corsOrigin}
 	r := mux.NewRouter()
 	r.HandleFunc("/_/v1/account/{id}/activate", s.AccountActivateHandler)
 	r.Handle("/_/v1/account/{id}", authRequired(s.scc, s.db, s.AccountHandler))
@@ -270,5 +303,9 @@ func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie) http.Handler
 
 	r.Handle("/_/v1/transaction/{id}", authRequired(s.scc, s.db, s.TransactionActionHandler))
 	r.Handle("/_/v1/transaction", authRequired(s.scc, s.db, s.ListTransactionHandler))
+
+	r.Handle("/_/v1/jumper", authRequired(s.scc, s.db, s.ListJumpers))
+
+	r.Use(s.CORSHeaders)
 	return r
 }

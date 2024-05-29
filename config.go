@@ -16,6 +16,7 @@ type Config struct {
 	SecureCookieHashKey     string
 	SecureCookieBlockKey    string
 	ListenAddr              string
+	AllowedCORSOrigin       string
 }
 
 func LoadConfig(filename string) *Config {
