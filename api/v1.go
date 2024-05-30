@@ -49,7 +49,7 @@ func (s *APIServerV1) readJSON(r *http.Request) (map[string]interface{}, error) 
 
 func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	accID, err := strconv.Atoi(vars["id"])
+	accID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -59,9 +59,14 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 	//
 	switch r.Method {
 	case http.MethodGet:
-		if !sessAcc.IsOperator() && sessAcc.ID != uint(accID) {
-			http.Error(w, "未授权", http.StatusForbidden)
-			return
+		if accID != 0 {
+			if !sessAcc.IsOperator() && sessAcc.ID != uint(accID) {
+				http.Error(w, "未授权", http.StatusForbidden)
+				return
+			}
+
+		} else {
+			accID = uint64(sessAcc.ID)
 		}
 		acc := model.Account{ID: uint(accID)}
 		err = s.db.Take(&acc).Error
@@ -255,6 +260,16 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 				}
 				s.db.Save(&qa)
 			}
+		case "null":
+		default:
+			qa := model.QuickAction{
+				DeviceBindingKey: sessAcc.DeviceBindingKey,
+				ValidBefore:      time.Now(),
+				Temporary:        false,
+				CachedAccountID:  sessAcc.ID,
+				Action:           "null",
+			}
+			s.db.Save(&qa)
 		}
 
 		w.WriteHeader(http.StatusOK)
