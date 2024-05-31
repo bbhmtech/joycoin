@@ -17,7 +17,7 @@ type Account struct {
 	Activated         bool      `json:"activated"`
 	CachedCentBalance int64     `json:"cached_cent_balance"`
 	PasscodeHash      []byte    `json:"-"`
-	DeviceBindingKey  string    `json:"-"  gorm:"uniqueIndex"`
+	DeviceBindingKey  string    `json:"-"`
 }
 
 func (a *Account) ChangePasscode(new string) {
