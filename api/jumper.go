@@ -106,6 +106,7 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 		} else {
 
 			http.Redirect(w, r, s.actRedir+"?id="+strconv.FormatUint(uint64(tagAcc.ID), 10), http.StatusTemporaryRedirect)
+			return
 		}
 	}
 
@@ -123,7 +124,7 @@ func (s *JumperServer) handleSLink(w http.ResponseWriter, r *http.Request, j *mo
 
 func (s *JumperServer) HandleJ(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	j, err := model.JumperFromEncodedID(s.db, vars["key"])
+	j, err := model.GetJumperFromEncodedID(s.db, vars["key"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
