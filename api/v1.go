@@ -235,63 +235,86 @@ func (s *APIServerV1) ListTransactionHandler(w http.ResponseWriter, r *http.Requ
 
 func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request) {
 	sessAcc := sessionAccount(r)
-	if r.Method == http.MethodPost {
-		data, err := s.readJSON(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		switch data["action"].(string) {
-		case "quickPay":
-			amount := int64(data["cent_amount"].(float64))
-			// amount > 0: pay from sessAcc to ...
-			// amount < 0: collect money from ... to sessAcc
-			if amount < 0 && sessAcc.IsNormal() {
-				http.Error(w, "普通账户不支持快速收款", http.StatusForbidden)
+	switch r.Method {
+	case http.MethodPost:
+		{
+			data, err := s.readJSON(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 
-			if data["temporary"].(bool) {
-				qa := model.QuickAction{
-					DeviceBindingKey: sessAcc.DeviceBindingKey,
-					ValidBefore:      time.Now().Add(time.Minute),
-					Temporary:        true,
-					CachedAccountID:  sessAcc.ID,
-					Action:           "quickPay",
-					Int64Value1:      amount,
-					StringValue1:     data["message"].(string),
+			switch data["action"].(string) {
+			case "quickPay":
+				amount := int64(data["cent_amount"].(float64))
+				// amount > 0: pay from sessAcc to ...
+				// amount < 0: collect money from ... to sessAcc
+				if amount < 0 && sessAcc.IsNormal() {
+					http.Error(w, "普通账户不支持快速收款", http.StatusForbidden)
+					return
 				}
-				s.db.Save(&qa)
-			} else {
+
+				if data["temporary"].(bool) {
+					qa := model.QuickAction{
+						DeviceBindingKey: sessAcc.DeviceBindingKey,
+						ValidBefore:      time.Now().Add(time.Minute),
+						Temporary:        true,
+						CachedAccountID:  sessAcc.ID,
+						Action:           "quickPay",
+						Int64Value1:      amount,
+						StringValue1:     data["message"].(string),
+					}
+					s.db.Save(&qa)
+				} else {
+					qa := model.QuickAction{
+						DeviceBindingKey: sessAcc.DeviceBindingKey,
+						ValidBefore:      time.Now().Add(24 * time.Hour),
+						Temporary:        false,
+						CachedAccountID:  sessAcc.ID,
+						Action:           "quickPay",
+						Int64Value1:      amount,
+						StringValue1:     data["message"].(string),
+					}
+					s.db.Save(&qa)
+				}
+			case "null":
+			default:
 				qa := model.QuickAction{
 					DeviceBindingKey: sessAcc.DeviceBindingKey,
-					ValidBefore:      time.Now().Add(24 * time.Hour),
+					ValidBefore:      time.Now(),
 					Temporary:        false,
 					CachedAccountID:  sessAcc.ID,
-					Action:           "quickPay",
-					Int64Value1:      amount,
-					StringValue1:     data["message"].(string),
+					Action:           "null",
 				}
 				s.db.Save(&qa)
 			}
-		case "null":
-		default:
+
+			s.writeJSON(w, _success)
+			return
+		}
+	case http.MethodGet:
+		{
 			qa := model.QuickAction{
 				DeviceBindingKey: sessAcc.DeviceBindingKey,
-				ValidBefore:      time.Now(),
-				Temporary:        false,
-				CachedAccountID:  sessAcc.ID,
-				Action:           "null",
 			}
-			s.db.Save(&qa)
-		}
 
-		s.writeJSON(w, _success)
-		return
-	} else {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+			err := s.db.Joins("CachedAccount").First(&qa).Error
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if !qa.IsValid() {
+				http.Error(w, "no valid QuickAction found", http.StatusNotFound)
+				return
+			}
+
+			s.writeJSON(w, qa)
+		}
+	default:
+		{
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 	}
 }
 
