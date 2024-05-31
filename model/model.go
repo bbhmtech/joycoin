@@ -37,8 +37,11 @@ func AutoMigration(db *gorm.DB) {
 	slog.Info("migration complete", "err", err)
 
 	var nOperator int64 = 0
-	err = db.Where(&Account{Role: "operator"}).Count(&nOperator).Error
+	err = db.Model(&Account{}).Where("role = 'operator'").Count(&nOperator).Error
 	slog.Debug("counting role=operator", "number", nOperator, "err", err)
+	if err != nil {
+		panic(err)
+	}
 
 	if nOperator == 0 {
 		slog.Info("creating operator account", "nOperator", nOperator)
