@@ -3,6 +3,7 @@ package joycoin
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"os"
 
 	"github.com/gorilla/securecookie"
@@ -24,6 +25,9 @@ type Config struct {
 }
 
 func LoadConfig(filename string) *Config {
+	wd, err := os.Getwd()
+	slog.Info("loading config", "workdir", wd, "err", err)
+
 	b, err := os.ReadFile(filename)
 	if err != nil {
 		panic(err)
@@ -39,6 +43,8 @@ func LoadConfig(filename string) *Config {
 }
 
 func (c *Config) SaveConfig() {
+	wd, err := os.Getwd()
+	slog.Info("saving config", "workdir", wd, "err", err)
 	b, err := json.MarshalIndent(c, "", "    ")
 	if err != nil {
 		panic(err)

@@ -21,13 +21,13 @@ RUN go mod download
 COPY --from=fe-builder /builder/frontend/dist /builder/go/frontend/dist
 
 COPY . /builder/go
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -gcflags="all=-N -l" -o ./bin/main ./cmd/main/main.go
-
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
+    go build -ldflags="-s -w" -gcflags="all=-N -l" -o ./bin/main ./cmd/main/main.go
 
 # build runtime
 FROM alpine:latest
 
-WORKDIR /app
-COPY --from=go-builder /builder/go/bin/main /app/main
+WORKDIR /app/data
+COPY --from=go-builder /builder/go/bin/main /app/bin/main
 
-CMD ["/app/main"]
+CMD ["/app/bin/main"]
