@@ -35,7 +35,7 @@ func (t *Transaction) PreFlightCheck(db *gorm.DB) error {
 		return fmt.Errorf("无法找到 Initiator: %w", err)
 	}
 
-	if !t.InitiatorAccount.IsOperator() && t.InitiatorAccountID != t.FromAccountID {
+	if t.InitiatorAccount.IsNormal() && t.InitiatorAccountID != t.FromAccountID {
 		return errors.New("未授权的访问")
 	}
 
