@@ -8,18 +8,20 @@
     import Settings from "./pages/Settings.svelte";
     import Creator from "./pages/Creator.svelte";
     import Result from "./pages/Result.svelte";
+    import Unauthorized from "./pages/Unauthorized.svelte";
+    import QuickPay from "./pages/QuickPay.svelte";
 
   const routes = {
     // Exact path
-    "/": Home,
-
+    // "/": Home,
     "/account": Account,
+    "/quickPay": QuickPay,
     "/settings": Settings,
     "/activate": Activate,
     "/creator": Creator,
     "/result": Result,
-
-    "/debug": Debug,
+    "/unauthorized": Unauthorized,
+    // "/debug": Debug,
 
     // Catch-all
     // This is optional, but if present it must be the last
