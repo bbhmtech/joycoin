@@ -11,7 +11,7 @@ RUN pnpm build
 
 
 # build go
-FROM golang:latest as go-builder
+FROM golang:alpine as go-builder
 RUN apk add build-base
 WORKDIR /builder/go
 
@@ -25,7 +25,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -gcflags="al
 
 
 # build runtime
-FROM ubuntu:latest
+FROM alpine:latest
 
 WORKDIR /app
 COPY --from=go-builder /builder/go/bin/main /app/main
