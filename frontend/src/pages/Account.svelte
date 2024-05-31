@@ -28,6 +28,14 @@
             transactions = r;
         });
     });
+
+    function rightSign(x, from) {
+        if (from == id) {
+            return -x
+        } else {
+            return x
+        }
+    }
 </script>
 
 <MyCard>
@@ -55,7 +63,7 @@
         <tbody class="border-y-2 border-slate-400">
             {#each transactions as t, i}
                 <tr>
-                    <td>🎲{centToNormal(t.cent_amount)}</td>
+                    <td>🎲{rightSign(centToNormal(t.cent_amount), t.from_account_id)}</td>
                     <td>{t.message}</td>
                     <td>{fromNow(t.updated_at)}</td>
                     <td>{t.from_account_id} -> {t.to_account_id}</td>
