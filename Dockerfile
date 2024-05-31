@@ -25,7 +25,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -gcflags="al
 
 
 # build runtime
-FROM ubuntu:lts
+FROM ubuntu:latest
 
 WORKDIR /app
 COPY --from=go-builder /builder/go/bin/main /app/main
