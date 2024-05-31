@@ -9,19 +9,19 @@ import (
 )
 
 type Transaction struct {
-	ID           uint   `gorm:"primarykey"`
-	ReferenceTag string `gorm:"uniqueIndex"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID           uint      `gorm:"primarykey"`
+	ReferenceTag string    `gorm:"uniqueIndex"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 
-	InitiatorAccountID uint
+	InitiatorAccountID uint    `json:"initiator_account_id"`
 	InitiatorAccount   Account `json:"-" gorm:"foreignKey:InitiatorAccountID"`
-	FromAccountID      uint
+	FromAccountID      uint    `json:"from_account_id"`
 	FromAccount        Account `json:"-" gorm:"foreignKey:FromAccountID"`
-	ToAccountID        uint
+	ToAccountID        uint    `json:"to_account_id"`
 	ToAccount          Account `json:"-" gorm:"foreignKey:ToAccountID"`
-	Message            string
-	CentAmount         int64
+	Message            string  `json:"message"`
+	CentAmount         int64   `json:"cent_amount"`
 	// from: -amount, to: +amount
 }
 
