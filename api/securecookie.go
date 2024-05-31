@@ -92,15 +92,14 @@ func (v *mySecureCookieValue) GetAccount(db *gorm.DB) (*model.Account, error) {
 	clientKey := u.String()
 	if err == nil && len(clientKey) > 0 {
 		acc := model.Account{DeviceBindingKey: clientKey}
-		err := db.Where(&acc).First(&acc).Error
-		if err == nil {
-			return &acc, nil
-		} else if err == gorm.ErrRecordNotFound {
+		ret := db.Where(&acc).Limit(1).Find(&acc)
+		if ret.Error != nil {
+			return nil, ret.Error
+		} else if ret.RowsAffected == 0 {
 			return nil, nil
 		} else {
-			return nil, err
+			return &acc, nil
 		}
-
 	}
 	return nil, nil
 }
@@ -114,13 +113,13 @@ func (v *mySecureCookieValue) GetQuickAction(db *gorm.DB) (*model.QuickAction, e
 	clientKey := u.String()
 	if err == nil && len(clientKey) > 0 {
 		qa := model.QuickAction{DeviceBindingKey: clientKey}
-		err := db.Joins("CachedAccount").First(&qa).Error
-		if err == gorm.ErrRecordNotFound || !qa.IsValid() {
+		ret := db.Joins("CachedAccount").Limit(1).Find(&qa)
+		if ret.Error != nil {
+			return nil, ret.Error
+		} else if ret.RowsAffected == 0 || !qa.IsValid() {
 			return nil, nil
-		} else if err == nil {
-			return &qa, nil
 		} else {
-			return nil, err
+			return &qa, nil
 		}
 	}
 	return nil, nil
