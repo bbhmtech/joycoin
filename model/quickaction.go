@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type QuickAction struct {
 	DeviceBindingKey string    `json:"-" gorm:"primarykey"`

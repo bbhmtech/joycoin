@@ -59,7 +59,7 @@ func (t *Transaction) PreFlightCheck(db *gorm.DB) error {
 
 	// I know here racing condition exists, but I wanna to prioritize success in transactions first.
 	// If negative balance occurs, subsequent transaction will fail.
-	if t.FromAccount.IsNormal() && t.CentAmount > 0 && t.FromAccount.CachedCentBalance >= t.CentAmount {
+	if t.FromAccount.IsNormal() && t.CentAmount > 0 && t.FromAccount.CachedCentBalance < t.CentAmount {
 		return errors.New("支出方账户余额不足")
 	}
 
