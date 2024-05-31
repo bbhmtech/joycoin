@@ -76,7 +76,6 @@ func (v *mySecureCookieValue) SetCookie(w http.ResponseWriter, scc *securecookie
 			Name:     _secureCookieName,
 			Value:    encoded,
 			Path:     "/",
-			Secure:   true,
 			HttpOnly: true,
 			MaxAge:   86400,
 		}

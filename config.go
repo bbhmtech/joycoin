@@ -18,6 +18,7 @@ type Config struct {
 	ListenAddr              string
 	AllowedCORSOrigin       string
 	QuickPayResultURL       string
+	JumperURLPrefix         string
 }
 
 func LoadConfig(filename string) *Config {

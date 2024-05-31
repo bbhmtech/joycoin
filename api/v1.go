@@ -19,6 +19,7 @@ type APIServerV1 struct {
 	db         *gorm.DB
 	scc        *securecookie.SecureCookie
 	corsOrigin string
+	jURLPrefix string
 }
 
 var _success = map[string]bool{"ok": true}
@@ -101,6 +102,70 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.writeJSON(w, _success)
+	}
+}
+
+func (s *APIServerV1) CreateAccountHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessAcc := sessionAccount(r)
+	if !sessAcc.IsOperator() {
+		http.Error(w, "operator only", http.StatusForbidden)
+		return
+	}
+
+	data, err := s.readJSON(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	a := model.Account{Role: data["role"].(string), Activated: false}
+	if data["create_jumper"].(bool) {
+		j := model.Jumper{ID: uuid.NewString(), Hint: "NTAG|Account"}
+		err = s.db.Transaction(func(tx *gorm.DB) error {
+			err := tx.Create(&a).Error
+			if err != nil {
+				return err
+			}
+			j.TargetID = a.ID
+
+			err = tx.Create(&j).Error
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		eID, err := j.EncodeID()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.writeJSON(w, map[string]interface{}{
+			"account": a,
+			"jumper":  j,
+			"link":    s.jURLPrefix + eID,
+		})
+
+	} else {
+		err := s.db.Create(&a).Error
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.writeJSON(w, a)
 	}
 }
 
@@ -218,7 +283,7 @@ func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Re
 
 func (s *APIServerV1) ListTransactionHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "GET only", http.StatusBadRequest)
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -298,12 +363,12 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 				DeviceBindingKey: sessAcc.DeviceBindingKey,
 			}
 
-			err := s.db.Joins("CachedAccount").First(&qa).Error
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+			ret := s.db.Joins("CachedAccount").Limit(1).Find(&qa)
+			if ret.Error != nil {
+				http.Error(w, ret.Error.Error(), http.StatusInternalServerError)
 				return
 			}
-			if !qa.IsValid() {
+			if ret.RowsAffected == 0 || !qa.IsValid() {
 				http.Error(w, "no valid QuickAction found", http.StatusNotFound)
 				return
 			}
@@ -353,13 +418,16 @@ func CreateAPIServerV1(db *gorm.DB, scc *securecookie.SecureCookie, cfg *joycoin
 		db:         db,
 		scc:        scc,
 		corsOrigin: cfg.AllowedCORSOrigin,
+		jURLPrefix: cfg.JumperURLPrefix,
 	}
+
 	r := mux.NewRouter()
-	r.HandleFunc("/_/v1/account/{id}/activate", s.AccountActivateHandler)
-	r.Handle("/_/v1/account/{id}", authRequired(s.scc, s.db, s.AccountHandler))
+	r.HandleFunc("/_/v1/account/{id:[0-9]+}/activate", s.AccountActivateHandler)
+	r.Handle("/_/v1/account/{id:[0-9]+}", authRequired(s.scc, s.db, s.AccountHandler))
+	r.Handle("/_/v1/account/create", authRequired(s.scc, s.db, s.CreateAccountHandler))
 	r.Handle("/_/v1/quickaction", authRequired(s.scc, s.db, s.QuickActionHandler))
 
-	r.Handle("/_/v1/transaction/{id}", authRequired(s.scc, s.db, s.TransactionActionHandler))
+	r.Handle("/_/v1/transaction/{id:[0-9]+}", authRequired(s.scc, s.db, s.TransactionActionHandler))
 	r.Handle("/_/v1/transaction", authRequired(s.scc, s.db, s.ListTransactionHandler))
 
 	r.Handle("/_/v1/jumper", authRequired(s.scc, s.db, s.ListJumpers))
