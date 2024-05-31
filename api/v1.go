@@ -290,7 +290,7 @@ func (s *APIServerV1) ListTransactionHandler(w http.ResponseWriter, r *http.Requ
 
 	sessAcc := sessionAccount(r)
 	ts := []model.Transaction{}
-	err := s.db.Where("from_account_id = ? or to_account_id = ?", sessAcc.ID, sessAcc.ID).Find(&ts).Error
+	err := s.db.Where("from_account_id = ? or to_account_id = ?", sessAcc.ID, sessAcc.ID).Order("updated_at DESC").Find(&ts).Error
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
