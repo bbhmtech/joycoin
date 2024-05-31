@@ -116,7 +116,7 @@ func (v *mySecureCookieValue) GetQuickAction(db *gorm.DB) (*model.QuickAction, e
 	if err == nil && len(clientKey) > 0 {
 		qa := model.QuickAction{DeviceBindingKey: clientKey}
 		err := db.Joins("CachedAccount").First(&qa).Error
-		if err == gorm.ErrRecordNotFound || qa.CachedAccount.DeviceBindingKey != qa.DeviceBindingKey || !qa.IsValid() {
+		if err == gorm.ErrRecordNotFound || !qa.IsValid() {
 			return nil, nil
 		} else if err == nil {
 			return &qa, nil
