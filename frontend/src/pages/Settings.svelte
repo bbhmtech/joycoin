@@ -75,14 +75,14 @@
             bind:value={quickActionSelected}
         >
             <option value="null">无</option>
-            <option value="quickPay">快捷支付</option></MySelector
-        >
+            <option value="quickPay">快捷支付</option>
+        </MySelector>
     {/if}
 
     {#if quickActionSelected == "quickPay"}
         <MyInput
             type="number"
-            label="快捷支付 - 描述"
+            label="快捷支付 - 金额"
             hint="Hint: 正数表示向对方支付"
             bind:value={quickPayAmount}
             placeholder="0.00"

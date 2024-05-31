@@ -1,19 +1,23 @@
 <script>
+    import MyButton from "@/lib/MyButton.svelte";
     import MyCard from "@/lib/MyCard.svelte";
     import { centToNormal } from "@/lib/conv";
+    import { fromNow } from "@/lib/time";
     import { activateAccount, getAccount, listTransactions } from "@/lib/v1";
     import { onMount } from "svelte";
     import { push } from "svelte-spa-router";
 
     let nickname = "无名客",
         centBalance = 0,
-        aId;
+        id = "?",
+        role = "?";
     let transactions = [];
     onMount(() => {
         getAccount(0)
             .then((r) => {
                 nickname = r["nickname"];
-                aId = r["id"];
+                id = r["id"];
+                role = r["role"];
                 centBalance = r["cached_cent_balance"];
             })
             .catch(() => {
@@ -28,13 +32,13 @@
 
 <MyCard>
     <h1 class="font-lg">6.1 快乐, {nickname}!</h1>
-    <h1 class="font-bold text-xl">欢乐豆账户 ({aId})</h1>
+    <h1 class="font-bold text-xl">欢乐豆账户 ({id}, {role})</h1>
     <h2 class="w-fit self-center font-mono text-4xl">
         <span class="align-middle text-lg">🎲</span>{centToNormal(centBalance)}
     </h2>
     <div class="flex justify-around">
-        <button class="p-2 rounded-lg bg-sky-400">向个人支付</button>
-        <button class="p-2 rounded-lg bg-sky-400">打赏</button>
+        <MyButton primary>打赏</MyButton>
+        <MyButton primary on:click={() => {push("#/quickPay")}}>收付款</MyButton>
         <a class="p-2 rounded-lg bg-gray-400" href="#/settings">设置</a>
         <button></button>
     </div>
@@ -53,7 +57,7 @@
                 <tr>
                     <td>🎲{centToNormal(t.cent_amount)}</td>
                     <td>{t.message}</td>
-                    <td>1</td>
+                    <td>{fromNow(t.updated_at)}</td>
                     <td>{t.from_account_id} -> {t.to_account_id}</td>
                 </tr>
             {/each}
