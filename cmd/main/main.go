@@ -20,8 +20,8 @@ func main() {
 	http.Handle("/", fs)
 
 	// KeyPairWithPin()
-	http.ListenAndServeTLS(cfg.ListenAddr, "cert.pem", "key.pem", nil)
+	// http.ListenAndServeTLS(cfg.ListenAddr, "cert.pem", "key.pem", nil)
 
-	// http.ListenAndServe(cfg.ListenAddr, nil)
+	http.ListenAndServe(cfg.ListenAddr, nil)
 	// fmt.Println(model.JumperMapFromKey("S26awVL98GSvZp15wsJQ9Q"))
 }
