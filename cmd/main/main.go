@@ -19,7 +19,7 @@ func main() {
 	fs := http.FileServer(http.FS(joycoin.StaticContent))
 	http.Handle("/", fs)
 
-	KeyPairWithPin()
+	// KeyPairWithPin()
 	http.ListenAndServeTLS(cfg.ListenAddr, "cert.pem", "key.pem", nil)
 
 	// http.ListenAndServe(cfg.ListenAddr, nil)

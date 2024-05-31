@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/bbhmtech/joycoin"
@@ -15,6 +16,8 @@ type JumperServer struct {
 	db         *gorm.DB
 	scc        *securecookie.SecureCookie
 	qpRedirect string
+	actRedir   string
+	dbRedir    string
 }
 
 func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *model.Jumper) {
@@ -36,79 +39,79 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 		return
 	}
 
-	if !tagAcc.Activated {
-		// not activated account, redirect to activate confirmation.
-		// additional hint if already loggedIn
-		return
-	}
+	if tagAcc.Activated {
+		sessAcc, err := sccv.GetAccount(s.db)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	if qa != nil {
-		switch qa.Action {
-		case "quickPay":
-			err = s.db.Transaction(func(tx *gorm.DB) error {
-				var err error
-				var t model.Transaction
-				if qa.Int64Value1 > 0 {
-					t = model.Transaction{
-						ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
-						InitiatorAccountID: qa.CachedAccountID,
-						FromAccountID:      qa.CachedAccountID,
-						ToAccountID:        tagAcc.ID,
-						CentAmount:         qa.Int64Value1,
-						Message:            qa.StringValue1,
+		if sessAcc != nil {
+			if sessAcc.ID != tagAcc.ID && qa != nil {
+				switch qa.Action {
+				case "quickPay":
+					err = s.db.Transaction(func(tx *gorm.DB) error {
+						var err error
+						var t model.Transaction
+						if qa.Int64Value1 > 0 {
+							t = model.Transaction{
+								ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
+								InitiatorAccountID: qa.CachedAccountID,
+								FromAccountID:      qa.CachedAccountID,
+								ToAccountID:        tagAcc.ID,
+								CentAmount:         qa.Int64Value1,
+								Message:            qa.StringValue1,
+							}
+						} else {
+							t = model.Transaction{
+								ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
+								InitiatorAccountID: qa.CachedAccountID,
+								FromAccountID:      tagAcc.ID,
+								ToAccountID:        qa.CachedAccountID,
+								CentAmount:         -qa.Int64Value1,
+								Message:            qa.StringValue1,
+							}
+						}
+
+						if err = t.PreFlightCheck(tx); err != nil {
+							return err
+						}
+
+						if err = t.Insert(tx); err != nil {
+							return err
+						}
+
+						if qa.Temporary {
+							qa.ValidBefore = time.Now()
+							err = tx.Save(&qa).Error
+						}
+						return err
+					})
+
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
 					}
-				} else {
-					t = model.Transaction{
-						ReferenceTag:       "quickPay" + time.Now().Format(time.RFC3339),
-						InitiatorAccountID: qa.CachedAccountID,
-						FromAccountID:      tagAcc.ID,
-						ToAccountID:        qa.CachedAccountID,
-						CentAmount:         qa.Int64Value1,
-						Message:            qa.StringValue1,
-					}
-				}
 
-				if err = t.PreFlightCheck(tx); err != nil {
-					return err
+					// TODO: pass transaction details
+					http.Redirect(w, r, s.qpRedirect, http.StatusTemporaryRedirect)
+					return
+				default:
+					http.Error(w, "unsupported action", http.StatusInternalServerError)
+					return
 				}
-
-				if err = t.Insert(tx); err != nil {
-					return err
-				}
-
-				if qa.Temporary {
-					qa.ValidBefore = time.Now()
-					err = tx.Save(&qa).Error
-				}
-				return err
-			})
-
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
 			}
+			http.Redirect(w, r, s.dbRedir, http.StatusTemporaryRedirect)
+			return
+		} else {
 
-			// TODO: pass transaction details
-			http.Redirect(w, r, s.qpRedirect, http.StatusTemporaryRedirect)
-			return
-		default:
-			http.Error(w, "unsupported action", http.StatusInternalServerError)
-			return
+			http.Redirect(w, r, s.actRedir+"?id="+strconv.FormatUint(uint64(tagAcc.ID), 10), http.StatusTemporaryRedirect)
 		}
 	}
 
-	sessAcc, err := sccv.GetAccount(s.db)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if sessAcc != nil {
-		// http.Redirect() to account page
-		return
-	}
-
-	// redirect to login page
+	// not activated account, redirect to activate confirmation.
+	// additional hint if already loggedIn
+	http.Redirect(w, r, s.actRedir+"?initial=true&id="+strconv.FormatUint(uint64(tagAcc.ID), 10), http.StatusTemporaryRedirect)
 }
 
 func (s *JumperServer) handleSLink(w http.ResponseWriter, r *http.Request, j *model.Jumper) {
@@ -142,6 +145,8 @@ func CreateJumperServer(db *gorm.DB, secc *securecookie.SecureCookie, cfg *joyco
 		db:         db,
 		scc:        secc,
 		qpRedirect: cfg.QuickPayResultURL,
+		actRedir:   cfg.ActivatorURL,
+		dbRedir:    cfg.DashboardURL,
 	}
 
 	r := mux.NewRouter()

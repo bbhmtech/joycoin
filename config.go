@@ -18,6 +18,8 @@ type Config struct {
 	ListenAddr              string
 	AllowedCORSOrigin       string
 	QuickPayResultURL       string
+	ActivatorURL            string
+	DashboardURL            string
 	JumperURLPrefix         string
 }
 
