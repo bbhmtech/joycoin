@@ -31,7 +31,7 @@
     });
     function handleSave() {
         postAccount(0, nickname, passcode);
-        alert("如存");
+        alert("已保存");
     }
     function handleBack() {
         history.back();

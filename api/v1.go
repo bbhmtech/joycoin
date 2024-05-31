@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -343,6 +344,7 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 					s.db.Save(&qa)
 				}
 			case "null":
+				fallthrough
 			default:
 				qa := model.QuickAction{
 					DeviceBindingKey: sessAcc.DeviceBindingKey,
@@ -351,7 +353,9 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 					CachedAccountID:  sessAcc.ID,
 					Action:           "null",
 				}
-				s.db.Model(&qa).Select("valid_before", "temporary", "action").Updates(&qa)
+
+				ret := s.db.Model(&qa).Select("valid_before", "temporary", "action").Updates(&qa)
+				slog.Debug("saved null quickAction", "err", ret.Error, "rowAffected", ret.RowsAffected)
 			}
 
 			s.writeJSON(w, _success)
