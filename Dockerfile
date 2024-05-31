@@ -1,5 +1,5 @@
 # build frontend
-FROM node:16-alpine as fe-builder
+FROM node:lts-alpine as fe-builder
 RUN npm install -g pnpm
 WORKDIR /builder/frontend
 
@@ -11,7 +11,7 @@ RUN pnpm build
 
 
 # build go
-FROM golang:1.15.2-alpine as go-builder
+FROM golang:alpine as go-builder
 RUN apk add build-base
 WORKDIR /builder/go
 
