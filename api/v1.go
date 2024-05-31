@@ -21,15 +21,17 @@ type APIServerV1 struct {
 	corsOrigin string
 }
 
+var _success = map[string]bool{"ok": true}
+
 func (s *APIServerV1) writeJSON(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	w.Write(b)
 }
 
@@ -77,30 +79,28 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 
 		s.writeJSON(w, acc)
 	case http.MethodPost:
-		if !sessAcc.IsOperator() {
-			http.Error(w, `"现在还用不了！"`, http.StatusForbidden)
-			return
-		}
-		b, err := io.ReadAll(r.Body)
+		data, err := s.readJSON(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		acc := model.Account{}
-		err = json.Unmarshal(b, &acc)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		newAcc := model.Account{ID: sessAcc.ID, Nickname: data["nickname"].(string)}
+		switch data["passcode"].(type) {
+		case string:
+			pass := data["passcode"].(string)
+			if len(pass) > 0 {
+				newAcc.ChangePasscode(pass)
+			}
 		}
 
-		err = s.db.Save(&acc).Error
+		err = s.db.Model(&sessAcc).Select("Nickname", "PasscodeHash").Updates(newAcc).Error
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
+		s.writeJSON(w, _success)
 	}
 }
 
@@ -156,7 +156,8 @@ func (s *APIServerV1) AccountActivateHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	createSecureCookieValue(u).SetCookie(w, s.scc)
-	w.WriteHeader(http.StatusOK)
+
+	s.writeJSON(w, _success)
 }
 
 // princple here: 请求必须等幂
@@ -216,6 +217,20 @@ func (s *APIServerV1) TransactionActionHandler(w http.ResponseWriter, r *http.Re
 }
 
 func (s *APIServerV1) ListTransactionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", http.StatusBadRequest)
+		return
+	}
+
+	sessAcc := sessionAccount(r)
+	ts := []model.Transaction{}
+	err := s.db.Where("from_account_id = ? or to_account_id = ?", sessAcc.ID, sessAcc.ID).Find(&ts).Error
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.writeJSON(w, ts)
 }
 
 func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +287,7 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 			s.db.Save(&qa)
 		}
 
-		w.WriteHeader(http.StatusOK)
+		s.writeJSON(w, _success)
 		return
 	} else {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
