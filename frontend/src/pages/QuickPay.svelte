@@ -2,12 +2,32 @@
     import MyButton from "@/lib/MyButton.svelte";
     import MyCard from "@/lib/MyCard.svelte";
     import MyInput from "@/lib/MyInput.svelte";
-    import { normalToCent } from "@/lib/conv";
-    import { clearQuickAction, setQuickPay } from "@/lib/v1";
+    import { centToNormal, normalToCent } from "@/lib/conv";
+    import { clearQuickAction, getQuickAction, setQuickPay } from "@/lib/v1";
+    import { onMount } from "svelte";
 
     let quickPaySelection = 0,
         quickPayAmount,
-        quickPayMessage;
+        quickPayMessage,
+        quickPayRepeatable;
+
+    onMount(() => {
+        getQuickAction()
+            .then((r) => {
+                quickPayAmount = centToNormal(r["int64_value_1"]);
+                quickPayMessage = r["string_value_1"];
+                quickPayRepeatable = !r["temporary"]
+                if (r["action"] == "quickPay") {
+                    quickPaySelection = Number(quickPayAmount) <= 0 ? 1 : 2;
+                } else {
+                    quickPaySelection = 0
+                }
+            })
+            .catch((r) => {
+                quickPaySelection = 0;
+            });
+    });
+
     async function handleSave() {
         try {
             switch (quickPaySelection) {
@@ -18,14 +38,14 @@
                     await setQuickPay(
                         normalToCent(-quickPayAmount),
                         quickPayMessage,
-                        false,
+                        !quickPayRepeatable,
                     );
                     break;
                 case 2:
                     await setQuickPay(
                         normalToCent(quickPayAmount),
                         quickPayMessage,
-                        false,
+                        !quickPayRepeatable,
                     );
                     break;
                 default:
@@ -33,7 +53,7 @@
             }
             alert("已保存，1分钟贴近标签内有效");
         } catch (error) {
-            console.log(error)
+            console.log(error);
             alert(`错误: ${error}`);
         }
     }
@@ -64,6 +84,13 @@
             <span>🎲</span>
         </div>
     </MyInput>
+    
+    <MyInput
+        type="checkbox"
+        label="是否多次收款"
+        bind:value={quickPayRepeatable}
+    ></MyInput>
+
     <MyInput
         type="text"
         label="附言"

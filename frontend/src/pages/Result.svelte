@@ -7,7 +7,10 @@
 
     let qs = new URLSearchParams($querystring);
     let id = qs.get("id");
-    let trans, success, reason;
+    let trans,
+        success,
+        reason,
+        timeout = 15;
     onMount(async () => {
         if (!qs.has("id")) {
             alert("[错误] ID 缺失");
@@ -15,11 +18,21 @@
             await getTransaction(Number(id))
                 .then((r) => {
                     trans = r;
+                    success = true;
+                    reason = null;
                 })
                 .catch((r) => {
                     trans = null;
                     success = false;
                     reason = r;
+                })
+                .finally(() => {
+                    setInterval(() => {
+                        timeout--;
+                        if (timeout <= 0) {
+                            window.close();
+                        }
+                    }, 15000);
                 });
         }
     });
@@ -38,5 +51,8 @@
         <h1 class="text-xl font-bold text-center text-red-400">交易失败</h1>
         <h2>错误信息</h2>
         <pre>{reason}</pre>
+    {/if}
+    {#if timeout < 15}
+        <h2>{timeout}s 后自动关闭</h2>
     {/if}
 </MyCard>

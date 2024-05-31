@@ -351,7 +351,7 @@ func (s *APIServerV1) QuickActionHandler(w http.ResponseWriter, r *http.Request)
 					CachedAccountID:  sessAcc.ID,
 					Action:           "null",
 				}
-				s.db.Save(&qa)
+				s.db.Model(&qa).Select("valid_before", "temporary", "action").Updates(&qa)
 			}
 
 			s.writeJSON(w, _success)
