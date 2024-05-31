@@ -50,6 +50,7 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 			if sessAcc.ID != tagAcc.ID && qa != nil {
 				switch qa.Action {
 				case "quickPay":
+					var tID uint = 0
 					err = s.db.Transaction(func(tx *gorm.DB) error {
 						var err error
 						var t model.Transaction
@@ -85,7 +86,11 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 							qa.ValidBefore = time.Now()
 							err = tx.Save(&qa).Error
 						}
-						return err
+						if err != nil {
+							return err
+						}
+						tID = t.ID
+						return nil
 					})
 
 					if err != nil {
@@ -93,8 +98,7 @@ func (s *JumperServer) handleAccount(w http.ResponseWriter, r *http.Request, j *
 						return
 					}
 
-					// TODO: pass transaction details
-					http.Redirect(w, r, s.qpRedirect, http.StatusTemporaryRedirect)
+					http.Redirect(w, r, s.qpRedirect+"?id="+strconv.FormatUint(uint64(tID), 10), http.StatusTemporaryRedirect)
 					return
 				default:
 					http.Error(w, "unsupported action", http.StatusInternalServerError)
