@@ -85,3 +85,7 @@ export async function listJumpers() {
 export async function listTransactions() {
     return await get('/transaction')
 }
+
+export async function getTransaction(id) {
+    return await get('/transaction/'+id)
+}

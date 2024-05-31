@@ -5,16 +5,19 @@
     import MySelector from "@/lib/MySelector.svelte";
     import { NFCWriteURL } from "@/lib/nfc";
     import { createAccount } from "@/lib/v1";
+    import QRCode from "qrcode";
 
     let createJumper = false,
         showQRCode = false,
         accountRole = "normal";
 
     let result,
-        nfcResult = "";
+        nfcResult = "",
+        qrCodeReady = false;
 
     function handleClear() {
         result = null;
+        qrCodeReady = false;
         nfcResult = "";
     }
 
@@ -22,6 +25,21 @@
         createAccount(accountRole, createJumper)
             .then((r) => {
                 result = r;
+                alert(`账号创建成功`);
+
+                if (result["link"] && showQRCode) {
+                    QRCode.toCanvas(
+                        document.getElementById("qrcode"),
+                        result["link"],
+                        (err) => {
+                            if (err) {
+                                console.log(err);
+                            } else {
+                                qrCodeReady = true;
+                            }
+                        },
+                    );
+                }
             })
             .catch((r) => {
                 alert(r);
@@ -63,6 +81,8 @@
         <h2>NFC运行日志</h2>
         <pre class="text-wrap break-all">{nfcResult}</pre>
     {/if}
+
+    <canvas id="qrcode" hidden={!qrCodeReady}></canvas>
 
     {#if result != null}
         <h2>执行结果</h2>
