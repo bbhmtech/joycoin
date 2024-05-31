@@ -58,18 +58,18 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessAcc := sessionAccount(r)
-	//
+	if accID != 0 {
+		if !sessAcc.IsOperator() && sessAcc.ID != uint(accID) {
+			http.Error(w, "未授权", http.StatusForbidden)
+			return
+		}
+
+	} else {
+		accID = uint64(sessAcc.ID)
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		if accID != 0 {
-			if !sessAcc.IsOperator() && sessAcc.ID != uint(accID) {
-				http.Error(w, "未授权", http.StatusForbidden)
-				return
-			}
-
-		} else {
-			accID = uint64(sessAcc.ID)
-		}
 		acc := model.Account{ID: uint(accID)}
 		err = s.db.Take(&acc).Error
 		if err != nil {
@@ -85,7 +85,7 @@ func (s *APIServerV1) AccountHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		newAcc := model.Account{ID: sessAcc.ID, Nickname: data["nickname"].(string)}
+		newAcc := model.Account{ID: uint(accID), Nickname: data["nickname"].(string)}
 		switch data["passcode"].(type) {
 		case string:
 			pass := data["passcode"].(string)
