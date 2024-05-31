@@ -18,7 +18,7 @@ func createRootAccount(db *gorm.DB) {
 		panic(err)
 	}
 
-	slog.Info("create jumpber for root", "id", acc.ID, "role", acc.Role)
+	slog.Info("create jumper for root", "id", acc.ID, "role", acc.Role)
 	j, err := CreateJumpberFromAccount(db, &acc)
 	if err != nil {
 		panic(err)
