@@ -18,7 +18,7 @@ WORKDIR /builder/go
 COPY go.mod go.sum /builder/go
 RUN go mod download
 
-COPY --from fe-builder /builder/frontend/dist /builder/go/frontend/dist
+COPY --from=fe-builder /builder/frontend/dist /builder/go/frontend/dist
 
 COPY . /builder/go
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -gcflags="all=-N -l" -o ./bin/main ./cmd/main/main.go
