@@ -74,3 +74,7 @@ func KeyPairWithPin() ([]byte, []byte, []byte, error) {
 
 	return pemCert, pemKey, pin, nil
 }
+
+func main() {
+	KeyPairWithPin()
+}

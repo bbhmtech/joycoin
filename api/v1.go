@@ -409,7 +409,7 @@ func (s *APIServerV1) ListJumpers(w http.ResponseWriter, r *http.Request) {
 
 		s.writeJSON(w, data)
 	} else {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		http.Error(w, "OP only", http.StatusForbidden)
 	}
 }
 
