@@ -14,11 +14,11 @@
     onMount(() => {
         getQuickAction()
             .then((r) => {
-                quickPayAmount = centToNormal(r["int64_value_1"]);
+                quickPayAmount = centToNormal(Math.abs(r["int64_value_1"]));
                 quickPayMessage = r["string_value_1"];
                 quickPayRepeatable = !r["temporary"]
                 if (r["action"] == "quickPay") {
-                    quickPaySelection = Number(quickPayAmount) <= 0 ? 1 : 2;
+                    quickPaySelection = Number(r["int64_value_1"]) <= 0 ? 1 : 2;
                 } else {
                     quickPaySelection = 0
                 }
@@ -51,7 +51,7 @@
                 default:
                     break;
             }
-            alert("已保存，1分钟贴近标签内有效");
+            alert("已保存");
         } catch (error) {
             console.log(error);
             alert(`错误: ${error}`);
@@ -88,6 +88,7 @@
     <MyInput
         type="checkbox"
         label="是否多次收款"
+        hint={quickPayRepeatable ? null : "一分钟内贴近标签有效" }
         bind:value={quickPayRepeatable}
     ></MyInput>
 
