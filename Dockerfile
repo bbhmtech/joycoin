@@ -3,7 +3,7 @@ FROM node:16-alpine as fe-builder
 RUN npm install -g pnpm
 WORKDIR /builder/frontend
 
-COPY package.json pnpm-lock.yaml /builder/frontend
+COPY ./frontend/package.json ./frontend/pnpm-lock.yaml /builder/frontend
 RUN pnpm install --frozen-lockfile
 
 COPY ./frontend /builder/frontend
