@@ -1,5 +1,6 @@
 <script>
     import MyButton from "@/lib/MyButton.svelte";
+    import MyCard from "@/lib/MyCard.svelte";
     import MyInput from "@/lib/MyInput.svelte";
     import MySelector from "@/lib/MySelector.svelte";
     import { centToNormal, normalToCent } from "@/lib/conv";
@@ -57,53 +58,49 @@
     }
 </script>
 
-<main class="h-min-screen flex flex-col justify-center items-center">
-    <div
-        class="h-fit w-10/12 p-4 rounded-md shadow-md bg-slate-200 flex flex-col gap-4"
-    >
-        <h1 class="font-bold text-xl">账户设置</h1>
+<MyCard>
+    <h1 class="font-bold text-xl">账户设置</h1>
 
-        <MyInput type="text" label="昵称" bind:value={nickname}></MyInput>
+    <MyInput type="text" label="昵称" bind:value={nickname}></MyInput>
+    <MyInput
+        type="password"
+        label="登录口令"
+        bind:value={passcode}
+        placeholder="留空就不修改了"
+    ></MyInput>
+
+    {#if role == "merchant" || role == "operator"}
+        <MySelector
+            label="[Staff] 本机快捷操作"
+            bind:value={quickActionSelected}
+        >
+            <option value="null">无</option>
+            <option value="quickPay">快捷支付</option></MySelector
+        >
+    {/if}
+
+    {#if quickActionSelected == "quickPay"}
         <MyInput
-            type="password"
-            label="登录口令"
-            bind:value={passcode}
-            placeholder="留空就不修改了"
+            type="number"
+            label="快捷支付 - 描述"
+            hint="Hint: 正数表示向对方支付"
+            bind:value={quickPayAmount}
+            placeholder="0.00"
+        >
+            <div class="pointer-events-none flex items-center">
+                <span>🎲</span>
+            </div>
+        </MyInput>
+        <MyInput
+            type="text"
+            label="快捷支付 - 描述"
+            bind:value={quickPayMessage}
+            placeholder="说点什么..."
         ></MyInput>
+    {/if}
 
-        {#if role == "merchant" || role == "operator"}
-            <MySelector
-                label="[Staff] 本机快捷操作"
-                bind:value={quickActionSelected}
-            >
-                <option value="null">无</option>
-                <option value="quickPay">快捷支付</option></MySelector
-            >
-        {/if}
-
-        {#if quickActionSelected == "quickPay"}
-            <MyInput
-                type="number"
-                label="快捷支付 - 描述"
-                hint="Hint: 正数表示向对方支付"
-                bind:value={quickPayAmount}
-                placeholder="0.00"
-            >
-                <div class="pointer-events-none flex items-center">
-                    <span>🎲</span>
-                </div>
-            </MyInput>
-            <MyInput
-                type="text"
-                label="快捷支付 - 描述"
-                bind:value={quickPayMessage}
-                placeholder="说点什么..."
-            ></MyInput>
-        {/if}
-
-        <div class="flex justify-around">
-            <MyButton on:click={handleSave} primary={true}>保存</MyButton>
-            <MyButton on:click={handleBack}>返回</MyButton>
-        </div>
+    <div class="flex justify-around">
+        <MyButton on:click={handleSave} primary={true}>保存</MyButton>
+        <MyButton on:click={handleBack}>返回</MyButton>
     </div>
-</main>
+</MyCard>

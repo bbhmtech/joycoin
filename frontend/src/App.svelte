@@ -7,6 +7,7 @@
     import Account from "./pages/Account.svelte";
     import Settings from "./pages/Settings.svelte";
     import Creator from "./pages/Creator.svelte";
+    import Result from "./pages/Result.svelte";
 
   const routes = {
     // Exact path
@@ -16,6 +17,7 @@
     "/settings": Settings,
     "/activate": Activate,
     "/creator": Creator,
+    "/result": Result,
 
     "/debug": Debug,
 
